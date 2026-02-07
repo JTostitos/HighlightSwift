@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 @testable import HighlightSwift
 
 final class HighlightSwiftTests: XCTestCase {
@@ -114,5 +115,59 @@ final class HighlightSwiftTests: XCTestCase {
         XCTAssertEqual(result.language, "unknown")
         XCTAssertEqual(result.languageName, "Unknown")
         XCTAssertEqual(result.attributedText.characters.count, 477)
+    }
+
+    @MainActor
+    func testCancelledCodeTextTaskDoesNotApplyResult() async {
+        let harness = CodeTextHarness(text: swiftCode)
+        let gate = AsyncGate()
+
+        let cancelledTask = Task { @MainActor in
+            await gate.wait()
+            await harness.highlight(mode: .language(.swift), colorScheme: .light)
+        }
+
+        cancelledTask.cancel()
+        await gate.open()
+        await cancelledTask.value
+
+        XCTAssertNil(harness.highlightResult)
+    }
+}
+
+@MainActor
+private final class CodeTextHarness {
+    private(set) var codeText: CodeText
+
+    init(text: String) {
+        codeText = CodeText(text)
+    }
+
+    func highlight(mode: HighlightMode, colorScheme: ColorScheme) async {
+        await codeText.highlightText(mode: mode, colorScheme: colorScheme)
+    }
+
+    var highlightResult: HighlightResult? {
+        codeText.highlightResult
+    }
+}
+
+private actor AsyncGate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var isOpen = false
+
+    func wait() async {
+        guard !isOpen else {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    func open() {
+        isOpen = true
+        continuation?.resume()
+        continuation = nil
     }
 }

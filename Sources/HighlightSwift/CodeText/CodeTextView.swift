@@ -19,31 +19,38 @@ extension CodeText: View {
                 guard highlightResult == nil else {
                     return
                 }
-                highlightTask = Task {
-                    await highlightText()
-                }
+                refreshHighlight()
             }
             .onDisappear {
                 highlightTask?.cancel()
             }
             .onChange(of: mode) { newMode in
-                highlightTask?.cancel()
-                highlightTask = Task {
-                    await highlightText(mode: newMode)
-                }
+                refreshHighlight(mode: newMode)
             }
             .onChange(of: colors) { newColors in
-                highlightTask?.cancel()
-                highlightTask = Task {
-                    await highlightText(colors: newColors)
-                }
+                refreshHighlight(colors: newColors)
             }
             .onChange(of: colorScheme) { newColorScheme in
-                highlightTask?.cancel()
-                highlightTask = Task {
-                    await highlightText(colorScheme: newColorScheme)
-                }
+                refreshHighlight(colorScheme: newColorScheme)
             }
+            .onChange(of: scenePhase) { newPhase in
+                guard newPhase == .active else {
+                    return
+                }
+                refreshHighlight()
+            }
+    }
+
+    @MainActor
+    private func refreshHighlight(
+        mode: HighlightMode? = nil,
+        colors: CodeTextColors? = nil,
+        colorScheme: ColorScheme? = nil
+    ) {
+        highlightTask?.cancel()
+        highlightTask = Task { @MainActor in
+            await highlightText(mode: mode, colors: colors, colorScheme: colorScheme)
+        }
     }
 }
 

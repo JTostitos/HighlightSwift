@@ -17,6 +17,7 @@ public struct CodeText {
     
     @Environment(\.highlight) internal var highlight
     @Environment(\.colorScheme) internal var colorScheme
+    @Environment(\.scenePhase) internal var scenePhase
     
     /// Creates a text view that displays syntax highlighted code.
     /// - Parameters:
@@ -37,6 +38,9 @@ public struct CodeText {
         colors: CodeTextColors? = nil,
         colorScheme: ColorScheme? = nil
     ) async {
+        guard !Task.isCancelled else {
+            return
+        }
         let text = self.text
         let mode = mode ?? self.mode
         let colors = colors ?? self.colors
@@ -44,10 +48,18 @@ public struct CodeText {
         let schemeColors = scheme == .dark ? colors.dark : colors.light
         do {
             let highlightResult = try await highlight.request(text, mode: mode, colors: schemeColors)
+            guard !Task.isCancelled else {
+                return
+            }
             self.highlightResult = highlightResult
             result?(.success(highlightResult))
             success?(highlightResult)
+        } catch is CancellationError {
+            return
         } catch {
+            guard !Task.isCancelled else {
+                return
+            }
             result?(.failure(error))
             failure?(error)
         }
