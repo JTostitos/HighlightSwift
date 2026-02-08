@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS) || os(tvOS)
+import UIKit
+#endif
 
 @available(iOS 16.1, tvOS 16.1, *)
 extension CodeText: View {
@@ -39,6 +42,11 @@ extension CodeText: View {
                 }
                 refreshHighlight()
             }
+#if os(iOS) || os(tvOS)
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                refreshHighlight()
+            }
+#endif
     }
 
     @MainActor

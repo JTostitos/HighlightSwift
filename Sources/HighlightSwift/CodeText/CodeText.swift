@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS) || os(tvOS)
+import UIKit
+#endif
 
 @available(iOS 16.1, tvOS 16.1, *)
 public struct CodeText {
@@ -44,7 +47,7 @@ public struct CodeText {
         let text = self.text
         let mode = mode ?? self.mode
         let colors = colors ?? self.colors
-        let scheme = colorScheme ?? self.colorScheme
+        let scheme = colorScheme ?? activeColorScheme
         let schemeColors = scheme == .dark ? colors.dark : colors.light
         do {
             let highlightResult = try await highlight.request(text, mode: mode, colors: schemeColors)
@@ -64,4 +67,36 @@ public struct CodeText {
             failure?(error)
         }
     }
+
+    @MainActor
+    private var activeColorScheme: ColorScheme {
+#if os(iOS) || os(tvOS)
+        if let style = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive })?
+            .keyWindow?
+            .traitCollection
+            .userInterfaceStyle {
+            switch style {
+            case .dark:
+                return .dark
+            case .light:
+                return .light
+            case .unspecified:
+                return colorScheme
+            @unknown default:
+                return colorScheme
+            }
+        }
+#endif
+        return colorScheme
+    }
 }
+
+#if os(iOS) || os(tvOS)
+private extension UIWindowScene {
+    var keyWindow: UIWindow? {
+        windows.first(where: \.isKeyWindow)
+    }
+}
+#endif
